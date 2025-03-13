@@ -37,7 +37,7 @@ jobs:
           context: ./src/WebApi
           file: ./src/WebApi/Dockerfile
           push: true
-          tags: jonathanperis/rinha2-back-end-bora-dale-xgh-go:latest
+          tags: jonathanperis/rinha2-back-end-bora-dale-xgh-python:latest
 
   container-test:
     needs: build-push-image
