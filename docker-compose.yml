@@ -16,7 +16,7 @@ services:
     environment:
       DATABASE_URL: "postgres://postgres:postgres@db:5432/rinha?sslmode=disable"
     ports:
-      - "4200:8080"      
+      - "6665:8080"      
     deploy:
       resources:
         limits:
@@ -30,7 +30,7 @@ services:
     hostname: webapi2-python
     container_name: webapi-2-python
     ports:
-      - "4201:8080"
+      - "6666:8080"
 
   db:
     image: postgres
