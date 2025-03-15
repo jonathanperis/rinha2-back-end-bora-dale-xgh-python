@@ -74,23 +74,6 @@ def get_extrato(client_id):
     finally:
         pool.putconn(conn)
 
-def is_transacao_valid(valor, tipo, descricao):
-    # Value must be a positive integer
-    if not isinstance(valor, int) and not (isinstance(valor, float) and valor.is_integer()):
-        return False
-    if valor <= 0:
-        return False
-    
-    # Type must be either 'c' or 'd'
-    if tipo not in ['c', 'd']:
-        return False
-    
-    # Description must be non-empty and at most 10 characters
-    if not descricao or not isinstance(descricao, str) or len(descricao) > 10:
-        return False
-    
-    return True
-
 @app.route("/clientes/<int:client_id>/transacoes", methods=["POST"])
 def post_transacao(client_id):
     if client_id not in clientes:
@@ -145,6 +128,23 @@ def post_transacao(client_id):
         return f"Database error inserting transaction: {e}", 500
     finally:
         pool.putconn(conn)
+
+def is_transacao_valid(valor, tipo, descricao):
+    # Value must be a positive integer
+    if not isinstance(valor, int) and not (isinstance(valor, float) and valor.is_integer()):
+        return False
+    if valor <= 0:
+        return False
+    
+    # Type must be either 'c' or 'd'
+    if tipo not in ['c', 'd']:
+        return False
+    
+    # Description must be non-empty and at most 10 characters
+    if not descricao or not isinstance(descricao, str) or len(descricao) > 10:
+        return False
+    
+    return True
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080)
