@@ -47,16 +47,16 @@ def get_extrato(client_id):
             transacoes = []
             if transacoes_json:
                 try:
-                    raw_transacoes = json.loads(transacoes_json)
+                    raw_transacoes = transacoes_json
                     for t in raw_transacoes:
                         transacao = {
-                            "valor": int(t["Valor"]),
+                            "valor": t["Valor"],
                             "tipo": t["Tipo"],
                             "descricao": t["Descricao"]
                         }
                         transacoes.append(transacao)
                 except Exception as e:
-                    print(f"Error parsing transactions: {e}")
+                    print(f"Error processing transactions: {e}")
                     transacoes = []
 
             extrato = {
