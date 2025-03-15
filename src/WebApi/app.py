@@ -29,15 +29,13 @@ def healthz():
     return "Healthy", 200
 
 @app.route("/clientes/<int:client_id>/extrato", methods=["GET"])
-def get_extrato():
-    client_id = int(request.view_args["client_id"])
+def get_extrato(client_id):
     if client_id not in clientes:
         return "Client not found", 404
 
     conn = pool.getconn()
     try:
         with conn.cursor() as cur:
-            # Call the stored function GetSaldoClienteById.
             cur.execute("SELECT * FROM GetSaldoClienteById(%s)", (client_id,))
             row = cur.fetchone()
             if row is None:
@@ -45,11 +43,21 @@ def get_extrato():
 
             total, db_limite, data_extrato, transacoes_json = row
 
-            # Convert the transactions from JSON
-            try:
-                transacoes = json.loads(transacoes_json)
-            except Exception as e:
-                transacoes = []
+            # Convert transactions and rename keys
+            transacoes = []
+            if transacoes_json:
+                try:
+                    raw_transacoes = json.loads(transacoes_json)
+                    for t in raw_transacoes:
+                        transacao = {
+                            "valor": t["Valor"],
+                            "tipo": t["Tipo"],
+                            "descricao": t["Descricao"]
+                        }
+                        transacoes.append(transacao)
+                except Exception as e:
+                    print(f"Error parsing transactions: {e}")
+                    transacoes = []
 
             extrato = {
                 "saldo": {
@@ -66,9 +74,25 @@ def get_extrato():
     finally:
         pool.putconn(conn)
 
+def is_transacao_valid(valor, tipo, descricao):
+    # Value must be a positive integer
+    if not isinstance(valor, int) and not (isinstance(valor, float) and valor.is_integer()):
+        return False
+    if valor <= 0:
+        return False
+    
+    # Type must be either 'c' or 'd'
+    if tipo not in ['c', 'd']:
+        return False
+    
+    # Description must be non-empty and at most 10 characters
+    if not descricao or not isinstance(descricao, str) or len(descricao) > 10:
+        return False
+    
+    return True
+
 @app.route("/clientes/<int:client_id>/transacoes", methods=["POST"])
-def post_transacao():
-    client_id = int(request.view_args["client_id"])
+def post_transacao(client_id):
     if client_id not in clientes:
         return "Client not found", 404
 
@@ -80,22 +104,38 @@ def post_transacao():
     tipo = data.get("tipo")
     descricao = data.get("descricao")
 
-    transacao = {"valor": valor, "tipo": tipo, "descricao": descricao}
-    if not is_transacao_valid(transacao):
+    # Validate transaction input format
+    if not is_transacao_valid(valor, tipo, descricao):
         return "Invalid transaction data", 422
 
+    # For debit transactions, check the business rule:
+    # o débito não pode deixar o saldo menor que -limite
     conn = pool.getconn()
     try:
         with conn.cursor() as cur:
+            # Get the current balance
+            cur.execute('SELECT "SaldoInicial" FROM public."Clientes" WHERE "Id" = %s', (client_id,))
+            row = cur.fetchone()
+            if row is None:
+                return "Client not found", 404
+            current_saldo = row[0]
+
+            # Calculate new balance
+            if tipo == 'c':
+                new_saldo = current_saldo + int(valor)
+            else:  # 'd'
+                new_saldo = current_saldo - int(valor)
+                if new_saldo < -clientes[client_id]:
+                    return "Limite ultrapassado!", 422
+
             # Call the stored function InsertTransacao.
             cur.execute("SELECT InsertTransacao(%s, %s, %s, %s)", (client_id, valor, tipo, descricao))
             updated_saldo_row = cur.fetchone()
-            conn.commit()
             if updated_saldo_row is None:
                 return "Database error inserting transaction", 500
             updated_saldo = updated_saldo_row[0]
+            conn.commit()
             cliente_dto = {
-                "id": client_id,
                 "limite": clientes[client_id],
                 "saldo": updated_saldo
             }
@@ -105,19 +145,6 @@ def post_transacao():
         return f"Database error inserting transaction: {e}", 500
     finally:
         pool.putconn(conn)
-
-def is_transacao_valid(transacao):
-    tipoC = "c"
-    tipoD = "d"
-    if transacao.get("tipo") not in [tipoC, tipoD]:
-        return False
-    descricao = transacao.get("descricao")
-    if not descricao or len(descricao) > 10:
-        return False
-    valor = transacao.get("valor")
-    if not valor or valor <= 0:
-        return False
-    return True
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080)

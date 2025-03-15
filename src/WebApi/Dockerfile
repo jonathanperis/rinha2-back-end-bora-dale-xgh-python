@@ -12,4 +12,5 @@ COPY . .
 
 EXPOSE 8080
 
-CMD ["python", "app.py"]
+# Use Gunicorn with optimized settings for performance
+CMD ["gunicorn", "--workers=4", "--threads=2", "--worker-class=sync", "--bind=0.0.0.0:8080", "--timeout=30", "app:app"]
