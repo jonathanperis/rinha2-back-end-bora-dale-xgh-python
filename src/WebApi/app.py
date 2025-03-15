@@ -50,7 +50,7 @@ def get_extrato(client_id):
                     raw_transacoes = json.loads(transacoes_json)
                     for t in raw_transacoes:
                         transacao = {
-                            "valor": t["Valor"],
+                            "valor": int(t["Valor"]),
                             "tipo": t["Tipo"],
                             "descricao": t["Descricao"]
                         }
